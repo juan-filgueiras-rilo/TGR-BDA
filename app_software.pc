@@ -1,18 +1,13 @@
 /*
  * 
- * Miguel Rodrí­guez Penabad (miguel.penabad@udc.es)
+ * Marco Martínez Sánchez (marco.msanchez@udc.es)
+ * Juan Luis Filguieras Rilo (juan.filgueiras.rilo@udc.es)
  * Universidade da Coruña
  *
  * BDA - Curso 2018/19
  *
- * Exemplo de programa en Pro*C para xestión dunha BD de artigos.
+ * TGR BDA aplicado a unha empresa de desenvolvemento software.
  *
- * NOTA IMPORTANTE: Este código é un exemplo do que resolveu en clase.
- *   Algunha das funcionalidades podería estar mellor implementada, con
- *   mellor xestión de erros (xa que se foi engadindo código a medida
- *   que se explicaban cousas, algunha das primeiras funcionalidades
- *   pode estar incompleta) e por suposto moita mellor "usabilidade" do
- *   programa.
  */
 
 #include<stdlib.h>
@@ -58,13 +53,11 @@ int menu()
 
   printf("Menú da aplicación\n");
   printf("==================\n\n");
-  printf("1. Crear táboa\n");
-  printf("2. Eliminar táboa\n");
-  printf("3. Engadir artigo\n");
-  printf("4. Borrar artigos\n");
-  printf("5. Ver detalle de artigo\n");
-  printf("6. Listar artigos\n");
-  printf("7. Aumentar prezo\n");
+  printf("1. Engadir desenvolvedor\n");
+  printf("2. Borrar desenvolvedor\n");
+  printf("3. Ver detalle de desenvolvedor\n");
+  printf("4. Listar desenvolvedores\n");
+  printf("5. Aumentar salario\n");
 
   printf("0. Saír\n");
 
