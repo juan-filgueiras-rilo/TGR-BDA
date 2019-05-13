@@ -1,0 +1,365 @@
+/*
+ * 
+ * Miguel Rodrí­guez Penabad (miguel.penabad@udc.es)
+ * Universidade da Coruña
+ *
+ * BDA - Curso 2018/19
+ *
+ * Exemplo de programa en Pro*C para xestión dunha BD de artigos.
+ *
+ * NOTA IMPORTANTE: Este código é un exemplo do que resolveu en clase.
+ *   Algunha das funcionalidades podería estar mellor implementada, con
+ *   mellor xestión de erros (xa que se foi engadindo código a medida
+ *   que se explicaban cousas, algunha das primeiras funcionalidades
+ *   pode estar incompleta) e por suposto moita mellor "usabilidade" do
+ *   programa.
+ */
+
+#include<stdlib.h>
+#include<stdio.h>
+#include<string.h>
+EXEC SQL INCLUDE SQLCA;
+
+/*
+ * Utilidades para menús e ler valores por teclado. 
+ * En "teclado.c" están repetidas con exemplos de uso 
+ */
+#define MAXLEN 20
+void get_string(char *s, int maxlen){
+	fgets(s,maxlen,stdin);
+	int last = strlen(s) -1;
+	if ( (s[last]=='\r') || (s[last]=='\n') )
+		s[last] = '\0';
+}
+
+void get_password(char *s, int maxlen){
+	system("stty -echo");
+	get_string(s,maxlen);
+	system("stty echo");
+}
+
+int get_int(){
+	char s[MAXLEN];
+	get_string(s,MAXLEN);
+	return atoi(s);
+}
+
+float get_float(){
+	char s[MAXLEN];
+	get_string(s,MAXLEN);
+	return atof(s);
+}
+
+int menu()
+{
+  int opcion = -1;
+
+  int MAXOPTS = 12; /* Número de opcións do menú */
+
+  printf("Menú da aplicación\n");
+  printf("==================\n\n");
+  printf("1. Crear táboa\n");
+  printf("2. Eliminar táboa\n");
+  printf("3. Engadir artigo\n");
+  printf("4. Borrar artigos\n");
+  printf("5. Ver detalle de artigo\n");
+  printf("6. Listar artigos\n");
+  printf("7. Aumentar prezo\n");
+
+  printf("0. Saír\n");
+
+  while ( (opcion < 0) || (opcion > MAXOPTS)){
+      printf("OP> ");
+      opcion=get_int();
+  }
+  return opcion;
+}
+
+
+
+/* Funcionalidadess de base de datos */
+
+void xestiona_erroconxeion(){
+
+	exec sql whenever sqlerror continue;
+	switch(sqlca.sqlcode){
+		case -1017:
+		case -1005: printf("Erro conectando a Oracle\n\n");
+			exit(-1);
+		case -1012: printf("Erro desconectando de Oracle\n\n");
+			break;
+		default: 
+			printf("Erro %d: %.*s\n",
+			sqlca.sqlcode,
+			sqlca.sqlerrm.sqlerrml, sqlca.sqlerrm.sqlerrmc);
+	}
+}
+
+int xestiona_erroddl(char *taboa){
+	exec sql whenever sqlerror continue;
+	int cod = sqlca.sqlcode;
+	switch(cod){
+		case -955: printf("A táboa %s xa existe, non se crea\n", taboa);
+			break;
+		case -942: printf("A táboa %s non existe, non se borra\n", taboa);
+			break;
+	}
+	return cod;
+}
+
+
+int xestiona_errodml(int do_rollback, char *taboa){
+	exec sql whenever sqlerror continue;
+	int cod = sqlca.sqlcode;
+	switch(cod){
+		case -1: printf("Xa existe un %s con ese código, non se crea.\n", taboa);
+			break;
+		default: 
+			printf("Erro %d: %.*s\n",
+			sqlca.sqlcode,
+			sqlca.sqlerrm.sqlerrml, sqlca.sqlerrm.sqlerrmc);
+	}
+
+	if (do_rollback)
+		exec sql rollback;
+
+	return cod;
+}
+
+void conecta_bd(){
+	exec sql whenever sqlerror do xestiona_erroconxeion();
+	exec sql begin declare section;	
+	char usuario[30], clave[30];
+	exec sql end declare section;
+
+	printf("Conectando con Oracle...\n");
+	printf("Usuario: "); get_string(usuario, 29);
+	printf("Clave: "); get_password(clave, 29);
+
+	EXEC SQL CONNECT :usuario IDENTIFIED BY :clave;
+
+}
+
+void desconecta_bd(){
+	exec sql whenever sqlerror do xestiona_erroconxeion();
+	EXEC SQL COMMIT RELEASE;
+	printf("Desconectado.\n");
+}
+
+
+
+void crear_taboa(){
+	int erro=0;
+	exec sql whenever sqlerror do erro=xestiona_erroddl("ARTIGO");
+	exec sql create table artigo(
+		codart number(2) constraint pk_artigo primary key,
+		nomart varchar(15),
+		prezo number(5,2)
+		);
+
+	if(!erro)
+		printf("Táboa creada\n");
+}
+
+void eliminar_taboa(){
+	int erro=0;
+	exec sql whenever sqlerror do erro=xestiona_erroddl("ARTIGO");
+	exec sql drop table artigo;
+	if (!erro)
+		printf("Táboa eliminada\n");
+}
+
+
+
+
+
+void engadir_artigo(){
+	int erro=0;
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"artigo");
+
+	exec sql begin declare section;
+		int codigo;
+		char nome[16];
+		float prezo;
+		short prezo_ind=0;
+	exec sql end declare section;
+
+	printf("Código: "); codigo=get_int();
+	printf("Nome: "); get_string(nome, 15);
+	printf("Prezo (-1 = descoñecido): "); prezo=get_float();
+
+	if (prezo == -1) 
+		prezo_ind=-1;
+
+	exec sql insert into artigo(codart,nomart,prezo)
+		values(:codigo, :nome, :prezo:prezo_ind);
+
+	if (!erro){
+		exec sql commit;
+		printf("\nArtigo engadido.\n");
+	}
+
+}
+
+
+void borrar_artigos(){
+	int erro=0;
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"artigo");
+
+	exec sql begin declare section;
+		char texto[21], patron[25];
+	exec sql end declare section;
+
+	printf("Borrar artigos que conteñen...: "); get_string(texto, 20);
+	strcpy(patron, "%");
+	strcat(patron,texto);
+	strcat(patron,"%");
+
+	exec sql delete from artigo
+		where nomart like :patron;
+
+	if (!erro){
+		printf("\nArtigos borrados: %d.\n", sqlca.sqlerrd[2]);
+		exec sql commit;
+	}
+}
+
+void detalle_artigo(){
+	int erro=0;
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"artigo");
+
+	exec sql begin declare section;
+		int codigo;
+		char nome[16];
+		float prezo;
+		short prezo_ind=0;
+	exec sql end declare section;
+
+	printf("Código: "); codigo=get_int();
+
+	exec sql select nomart, prezo
+			into :nome, :prezo:prezo_ind
+			from artigo
+			where codart = :codigo;
+
+	if (!erro){
+
+		if (sqlca.sqlcode==1403)
+			printf("Artigo inexistente.\n");
+		else{
+			if (prezo_ind == -1)
+				printf("Artigo: [%d, %s, --]\n", codigo, nome);
+			else
+				printf("Artigo: [%d, %s, %g]\n", codigo, nome, prezo);
+	
+		}
+		exec sql commit;
+	}
+}
+
+
+void listar_artigos(){
+	int erro=0;
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"ARTIGO");
+
+	exec sql SET TRANSACTION READ ONLY;
+
+	exec sql begin declare section;
+		float prezomin;
+		int codigo;
+		char nome[16];
+		float prezo; short prezo_ind;
+	exec sql end declare section;
+
+	exec sql declare c_art cursor for
+		select codart, nomart, prezo
+			from artigo
+			where prezo > :prezomin;
+
+	printf("Introduce prezo mínimo: "); prezomin=get_float();
+	
+	EXEC SQL OPEN c_art;
+	EXEC SQL WHENEVER NOT FOUND DO BREAK;
+	printf("\n\n");
+	while(1){
+		EXEC SQL FETCH c_art INTO :codigo, :nome, :prezo:prezo_ind;
+		if (prezo_ind==0)
+		     printf("ARTIGO: \tCódigo: %d\tNome: %s\tPrezo: %g.\n", 
+				codigo,nome,prezo);
+		else
+		     printf("ARTIGO: \tCódigo: %d\tNome: %s\tPrezo descoñecido.\n", 
+				codigo,nome);
+	}
+	EXEC SQL WHENEVER NOT FOUND continue;
+	printf("\nArtigos atopados: %d\n", sqlca.sqlerrd[2]);
+	EXEC SQL CLOSE c_art;
+	printf("\n\n");
+	if (!erro)
+		EXEC SQL COMMIT;
+}
+
+
+void aumentar_prezo_artigo(){
+	int erro=0;
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"ARTIGO");
+
+	
+	
+	exec sql begin declare section;
+		int codigo;
+		float incremento;
+	exec sql end declare section;
+
+	printf("Código: "); codigo=get_int();
+	printf("Aumentar prezo en porcentaxe: "); incremento=get_float();
+
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+	
+	exec sql update artigo
+		set prezo=prezo + prezo*:incremento/100
+		where codart=:codigo;
+
+	printf("PAUSA"); get_int();
+
+	if(!erro){
+		if (sqlca.sqlerrd[2])   
+			printf("Artigo modificado\n");
+		else
+			printf("Artigo non atopado\n");
+		exec sql commit;
+	}
+
+}
+
+
+
+
+/* Función principal */
+int main()
+{
+  conecta_bd();
+
+  int op;
+
+  while ( (op=menu()) != 0){
+       switch(op){
+            case 1: crear_taboa(); break;
+            case 2: eliminar_taboa(); break;
+            case 3: engadir_artigo(); break;
+            case 4: borrar_artigos(); break;
+            case 5: detalle_artigo(); break;
+            case 6: listar_artigos(); break;
+			case 7: aumentar_prezo_artigo(); break;
+       }
+
+  }
+ 
+
+
+ desconecta_bd(); 
+
+ return 0;
+}
+
+
+
