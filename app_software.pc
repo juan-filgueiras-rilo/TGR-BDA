@@ -39,6 +39,12 @@ int get_int(){
 	return atoi(s);
 }
 
+long get_long(){
+	char s[MAXLEN];
+	get_string(s,MAXLEN);
+	return atol(s);
+}
+
 float get_float(){
 	char s[MAXLEN];
 	get_string(s,MAXLEN);
@@ -77,7 +83,7 @@ int menu()
 
   while ( (opcion < 0) || (opcion > MAXOPTS)){
       printf("OP> ");
-      opcion=get_int();
+      opcion=get_long();
   }
   return opcion;
 }
@@ -153,111 +159,92 @@ void desconecta_bd(){
 	printf("Desconectado.\n");
 }
 
-
-
-void crear_taboa(){
+void engadir_desenvolvedor(){
 	int erro=0;
-	exec sql whenever sqlerror do erro=xestiona_erroddl("ARTIGO");
-	exec sql create table artigo(
-		codart number(2) constraint pk_artigo primary key,
-		nomart varchar(15),
-		prezo number(5,2)
-		);
-
-	if(!erro)
-		printf("Táboa creada\n");
-}
-
-void eliminar_taboa(){
-	int erro=0;
-	exec sql whenever sqlerror do erro=xestiona_erroddl("ARTIGO");
-	exec sql drop table artigo;
-	if (!erro)
-		printf("Táboa eliminada\n");
-}
-
-
-
-
-
-void engadir_artigo(){
-	int erro=0;
-	exec sql whenever sqlerror do erro=xestiona_errodml(1,"artigo");
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"desenvolvedor");
 
 	exec sql begin declare section;
-		int codigo;
-		char nome[16];
-		float prezo;
-		short prezo_ind=0;
+		long nss;
+		char nome[30];
+		float sal;
+		short sal_ind=0;
+		char tlf[20];
+		char end[100];
+
 	exec sql end declare section;
 
-	printf("Código: "); codigo=get_int();
-	printf("Nome: "); get_string(nome, 15);
-	printf("Prezo (-1 = descoñecido): "); prezo=get_float();
+	printf("Número da Seguridade Social: "); nss=get_long();
+	printf("Nome: "); get_string(nome, 20);
+	printf("Salario (-1 = indefinido): "); sal=get_float();
+	printf("Teléfono Móbil: "); get_string(tlf,10);
+	printf("Enderezo: "); get_string(end,100);
 
-	if (prezo == -1) 
-		prezo_ind=-1;
+	if (sal == -1) 
+		sal_ind=-1;
 
-	exec sql insert into artigo(codart,nomart,prezo)
-		values(:codigo, :nome, :prezo:prezo_ind);
+	exec sql insert into desenvolvedor(nss,nome,salario,telefono,enderezo)
+		values(:nss, :nome, :sal:sal_ind, :tlf, :end);
 
 	if (!erro){
 		exec sql commit;
-		printf("\nArtigo engadido.\n");
+		printf("\Desenvolvedor engadido.\n");
 	}
 
 }
 
 
-void borrar_artigos(){
+void eliminar_desenvolvedor(){
 	int erro=0;
-	exec sql whenever sqlerror do erro=xestiona_errodml(1,"artigo");
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"desenvolvedor");
 
 	exec sql begin declare section;
-		char texto[21], patron[25];
+		long nss;
 	exec sql end declare section;
 
-	printf("Borrar artigos que conteñen...: "); get_string(texto, 20);
-	strcpy(patron, "%");
-	strcat(patron,texto);
-	strcat(patron,"%");
+	printf("Eliminar desenvolvedor por NSS...: "); get_long(nss);
 
-	exec sql delete from artigo
-		where nomart like :patron;
+	exec sql delete from desenvolvedor
+		where nss like :nss;
 
 	if (!erro){
-		printf("\nArtigos borrados: %d.\n", sqlca.sqlerrd[2]);
+		if(sqlca.sqlerrd[2]) {
+			printf("\nEmpregado eliminado.\n");
+		} else {
+			printf("\nNon se atopou o empregado.\n");
+		}
 		exec sql commit;
 	}
 }
 
-void detalle_artigo(){
+void detalle_desenvolvedor(){
 	int erro=0;
-	exec sql whenever sqlerror do erro=xestiona_errodml(1,"artigo");
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"desenvolvedor");
 
 	exec sql begin declare section;
-		int codigo;
-		char nome[16];
-		float prezo;
-		short prezo_ind=0;
+		long nss;
+		char nome[30];
+		float sal;
+		short sal_ind=0;
+		char tlf[20];
+		char end[100];
 	exec sql end declare section;
 
-	printf("Código: "); codigo=get_int();
+	printf("NSS: "); nss=get_long();
 
-	exec sql select nomart, prezo
-			into :nome, :prezo:prezo_ind
-			from artigo
-			where codart = :codigo;
+	exec sql select nome, sal, telefono, enderezo
+			into :nome, :sal:sal_ind, :tlf, :end
+			from desenvolvedor
+			where nss = :nss;
 
 	if (!erro){
 
 		if (sqlca.sqlcode==1403)
-			printf("Artigo inexistente.\n");
+			printf("Desenvolvedor inexistente.\n");
 		else{
-			if (prezo_ind == -1)
-				printf("Artigo: [%d, %s, --]\n", codigo, nome);
+			if (sal_ind == -1)
+				printf("Desenvolvedor: [%d, %s, --, %s, %s]\n", nss, nome, tlf, end);
 			else
-				printf("Artigo: [%d, %s, %g]\n", codigo, nome, prezo);
+				printf("Desenvolvedor: [%d, %s, %g, %s, %s]\n", nss, nome, sal, tlf, end);
 	
 		}
 		exec sql commit;
@@ -265,81 +252,172 @@ void detalle_artigo(){
 }
 
 
-void listar_artigos(){
+void listar_desenvolvedores(){
 	int erro=0;
-	exec sql whenever sqlerror do erro=xestiona_errodml(1,"ARTIGO");
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"desenvolvedor");
 
 	exec sql SET TRANSACTION READ ONLY;
 
 	exec sql begin declare section;
-		float prezomin;
-		int codigo;
-		char nome[16];
-		float prezo; short prezo_ind;
+		long nss;
+		char nome[30];
+		float sal;
+		short sal_ind;
+		char tlf[20];
+		char end[100];
 	exec sql end declare section;
 
-	exec sql declare c_art cursor for
-		select codart, nomart, prezo
-			from artigo
-			where prezo > :prezomin;
+	exec sql declare c_des cursor for
+		select nss, nome, salario, telefono, enderezo
+			from desenvolvedor
 
-	printf("Introduce prezo mínimo: "); prezomin=get_float();
-	
-	EXEC SQL OPEN c_art;
+	EXEC SQL OPEN c_des;
 	EXEC SQL WHENEVER NOT FOUND DO BREAK;
 	printf("\n\n");
 	while(1){
-		EXEC SQL FETCH c_art INTO :codigo, :nome, :prezo:prezo_ind;
-		if (prezo_ind==0)
-		     printf("ARTIGO: \tCódigo: %d\tNome: %s\tPrezo: %g.\n", 
-				codigo,nome,prezo);
+		EXEC SQL FETCH c_des INTO :nss, :nome, :sal:sal_ind, tlf, end;
+		if (sal_ind==0)
+		     printf("DESENVOLVEDOR: \tCódigo: %d\tNome: %s\tPrezo: %g \tTeléfono Móbil: %s \tEnderezo: %s.\n", 
+				nss,nome,sal,tlf,end);
 		else
-		     printf("ARTIGO: \tCódigo: %d\tNome: %s\tPrezo descoñecido.\n", 
-				codigo,nome);
+		     printf("DESENVOLVEDOR: \tCódigo: %d\tNome: %s\tPrezo descoñecido \tTeléfono Móbil: %s \tEnderezo: %s.\n", 
+				nss,nome,tlf,end);
 	}
 	EXEC SQL WHENEVER NOT FOUND continue;
-	printf("\nArtigos atopados: %d\n", sqlca.sqlerrd[2]);
-	EXEC SQL CLOSE c_art;
+	printf("\Desenvolvedores atopados: %d\n", sqlca.sqlerrd[2]);
+	EXEC SQL CLOSE c_des;
 	printf("\n\n");
 	if (!erro)
 		EXEC SQL COMMIT;
 }
 
 
-void aumentar_prezo_artigo(){
+void modificar_salario(){
 	int erro=0;
-	exec sql whenever sqlerror do erro=xestiona_errodml(1,"ARTIGO");
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"desenvolvedor");
 
-	
-	
 	exec sql begin declare section;
-		int codigo;
-		float incremento;
+		long nss;
+		float novo_sal;
+		float vello_sal; short vello_sal_ind;
 	exec sql end declare section;
 
-	printf("Código: "); codigo=get_int();
-	printf("Aumentar prezo en porcentaxe: "); incremento=get_float();
+	printf("NSS: "); nss=get_long();
 
-	EXEC SQL SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+	exec sql select sal
+		into :vello_sal:vello_sal_ind
+		from desenvolvedor
+		where nss = :nss;
+
+	if(vello_sal_ind == 0) {
+		printf("Salario actual do desenvolvedor: %g\n", vello_sal);
+	} else {
+		printf("O desenvolvedor non ten un salario asignado.\n");
+	}
+	printf("Modificar salario (-1 para deixalo igual): "); novo_sal=get_float();
+
+	if (novo_sal != -1) {
+	 	EXEC SQL SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+ 		exec sql update desenvolvedor
+			set sal = :novo_sal
+			where nss=:nss;
+	}
 	
-	exec sql update artigo
-		set prezo=prezo + prezo*:incremento/100
-		where codart=:codigo;
-
-	printf("PAUSA"); get_int();
-
 	if(!erro){
 		if (sqlca.sqlerrd[2])   
-			printf("Artigo modificado\n");
+			printf("Desenvolvedor con salario modificado\n");
 		else
-			printf("Artigo non atopado\n");
+			printf("Desenvolvedor non atopado\n");
 		exec sql commit;
 	}
 
 }
 
+void buscar_xefes() {
 
+	int erro=0;
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"desenvolvedor");
 
+	exec sql SET TRANSACTION READ ONLY;
+
+	exec sql begin declare section;
+		long nss;
+		char nome[30];
+		float sal;
+		short sal_ind;
+		char tlf[20];
+		char end[100];
+	exec sql end declare section;
+
+	exec sql declare c_des cursor for
+		select nss, nome, salario, telefono, enderezo
+			from desenvolvedor d join proxecto p
+			on d.nss = p.xefe_nss
+
+	EXEC SQL OPEN c_des;
+	EXEC SQL WHENEVER NOT FOUND DO BREAK;
+	printf("\n\n");
+	while(1){
+		EXEC SQL FETCH c_des INTO :nss, :nome, :sal:sal_ind, tlf, end;
+		if (sal_ind==0)
+		     printf("XEFE: \tCódigo: %d\tNome: %s\tPrezo: %g \tTeléfono Móbil: %s \tEnderezo: %s.\n", 
+				nss,nome,sal,tlf,end);
+		else
+		     printf("XEFE: \tCódigo: %d\tNome: %s\tPrezo descoñecido \tTeléfono Móbil: %s \tEnderezo: %s.\n", 
+				nss,nome,tlf,end);
+	}
+	EXEC SQL WHENEVER NOT FOUND continue;
+	printf("\Xefes atopados: %d\n", sqlca.sqlerrd[2]);
+	EXEC SQL CLOSE c_des;
+	printf("\n\n");
+	if (!erro)
+		EXEC SQL COMMIT;
+}
+
+void buscar_empregados_por_proxecto() {
+
+	int erro=0;
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"desenvolvedor");
+
+	exec sql SET TRANSACTION READ ONLY;
+
+	exec sql begin declare section;
+		int cod_pro;
+		long nss;
+		char nome[30];
+		float sal;
+		short sal_ind;
+		char tlf[20];
+		char end[100];
+	exec sql end declare section;
+
+	printf("Código proxecto: "); cod_pro=get_int();
+
+	exec sql declare c_des cursor for
+		select nss, nome, salario, telefono, enderezo
+			from desenvolvedor d join proxecto p
+			on d.nss = p.xefe_nss
+
+	EXEC SQL OPEN c_des;
+	EXEC SQL WHENEVER NOT FOUND DO BREAK;
+	printf("\n\n");
+	while(1){
+		EXEC SQL FETCH c_des INTO :nss, :nome, :sal:sal_ind, tlf, end;
+		if (sal_ind==0)
+		     printf("XEFE: \tCódigo: %d\tNome: %s\tPrezo: %g \tTeléfono Móbil: %s \tEnderezo: %s.\n", 
+				nss,nome,sal,tlf,end);
+		else
+		     printf("XEFE: \tCódigo: %d\tNome: %s\tPrezo descoñecido \tTeléfono Móbil: %s \tEnderezo: %s.\n", 
+				nss,nome,tlf,end);
+	}
+	EXEC SQL WHENEVER NOT FOUND continue;
+	printf("\Xefes atopados: %d\n", sqlca.sqlerrd[2]);
+	EXEC SQL CLOSE c_des;
+	printf("\n\n");
+	if (!erro)
+		EXEC SQL COMMIT;
+}
 
 /* Función principal */
 int main()
@@ -350,13 +428,13 @@ int main()
 
   while ( (op=menu()) != 0){
        switch(op){
-            case 1: crear_taboa(); break;
-            case 2: eliminar_taboa(); break;
-            case 3: engadir_artigo(); break;
-            case 4: borrar_artigos(); break;
-            case 5: detalle_artigo(); break;
-            case 6: listar_artigos(); break;
-			case 7: aumentar_prezo_artigo(); break;
+            case 1: engadir_desenvolvedor(); break;
+            case 2: eliminar_desenvolvedor(); break;
+            case 3: detalle_desenvolvedor(); break;
+            case 4: listar_desenvolvedores(); break;
+            case 5: modificar_salario(); break;
+            case 15: buscar_empregados_por_proxecto(); break;
+            case 16: buscar_xefes(); break;
        }
 
   }
