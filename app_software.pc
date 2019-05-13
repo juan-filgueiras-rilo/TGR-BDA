@@ -49,15 +49,29 @@ int menu()
 {
   int opcion = -1;
 
-  int MAXOPTS = 12; /* Número de opcións do menú */
+  int MAXOPTS = 15; /* Número de opcións do menú */
 
   printf("Menú da aplicación\n");
-  printf("==================\n\n");
+  printf("=========DESENVOLVEDORES=========\n\n");
   printf("1. Engadir desenvolvedor\n");
   printf("2. Borrar desenvolvedor\n");
   printf("3. Ver detalle de desenvolvedor\n");
   printf("4. Listar desenvolvedores\n");
-  printf("5. Aumentar salario\n");
+  printf("5. Modificar salario\n");
+  printf("=========PROXECTOS=========\n\n");
+  printf("6. Engadir proxecto\n");
+  printf("7. Nomear xefe de proxecto\n");
+  printf("8. Modificar data de fin\n");
+  printf("=========MÓDULOS=========\n\n");
+  printf("9. Engadir módulo dun proxecto\n");
+  printf("10. Borrar módulo dun proxecto\n");
+  printf("11. Listar módulos\n");
+  printf("=========EMPREGADOS=========\n\n");
+  printf("12. Asignar empregado a módulo\n");
+  printf("13. Desasignar empregado de módulo\n");
+  printf("14. Buscar empregados por módulo\n");
+  printf("15. Buscar empregados por proxecto\n");
+  printf("16. Buscar xefes de proxecto\n");
 
   printf("0. Saír\n");
 
@@ -72,7 +86,7 @@ int menu()
 
 /* Funcionalidadess de base de datos */
 
-void xestiona_erroconxeion(){
+void xestiona_erroconexion(){
 
 	exec sql whenever sqlerror continue;
 	switch(sqlca.sqlcode){
@@ -120,7 +134,7 @@ int xestiona_errodml(int do_rollback, char *taboa){
 }
 
 void conecta_bd(){
-	exec sql whenever sqlerror do xestiona_erroconxeion();
+	exec sql whenever sqlerror do xestiona_erroconexion();
 	exec sql begin declare section;	
 	char usuario[30], clave[30];
 	exec sql end declare section;
@@ -134,7 +148,7 @@ void conecta_bd(){
 }
 
 void desconecta_bd(){
-	exec sql whenever sqlerror do xestiona_erroconxeion();
+	exec sql whenever sqlerror do xestiona_erroconexion();
 	EXEC SQL COMMIT RELEASE;
 	printf("Desconectado.\n");
 }
