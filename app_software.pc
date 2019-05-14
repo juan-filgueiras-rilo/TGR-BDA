@@ -24,6 +24,11 @@ EXEC SQL INCLUDE SQLCA;
  * En "teclado.c" est�n repetidas con exemplos de uso 
  */
 #define MAXLEN 20
+
+#define format  "dd/mm/yyyy"
+
+
+
 void get_string(char *s, int maxlen){
 	fgets(s,maxlen,stdin);
 	int last = strlen(s) -1;
@@ -162,7 +167,7 @@ void desconecta_bd(){
 }
 
 void engadir_proxecto(){
-	int erro;
+	int erro=0;
 	exec sql whenever sqlerror do erro = xestiona_errodml(1, "proxecto");
 
 	exec sql begin declare section;
@@ -171,17 +176,18 @@ void engadir_proxecto(){
 		char dataIni[16];
 		char dataFin[16];
 		short dataFinInd;
+		char* nFormat = format;
 	exec sql end declare section;
 
 	printf("Codigo: "); codigo=get_int();
 	printf("Nome: "); get_string(nome, 15);
-	printf("Data de inicio: "); get_string(dataIni, 15);
-	printf("Data de fin (opcional): "); get_string(dataIni, 15);
+	printf("Data de inicio (%s): ", format); get_string(dataIni, 15);
+	printf("Data de fin (opcional): "); get_string(dataFin, 15);
 	dataFinInd = (dataFin[0] == '\n' || dataFin[0] == '\0') ? -1 : 0;
 
-
+	
 	exec sql insert into proxecto(cod_pro,nome,dataIni, dataFin)
-		values(:codigo, :nome, :dataIni, :dataFin:dataFinInd);
+		values(:codigo, :nome, TO_DATE(:dataIni, :nFormat), TO_DATE(:dataFin:dataFinInd, :nFormat));
 
 	if (!erro){
 		exec sql commit;
@@ -190,8 +196,9 @@ void engadir_proxecto(){
 
 }
 
+
 void nomear_xefe_proxecto(){
-	int erro;
+	int erro=0;
 	exec sql whenever sqlerror do erro = xestiona_errodml(1, "proxecto");
 
 	exec sql begin declare section;
@@ -200,10 +207,10 @@ void nomear_xefe_proxecto(){
 	exec sql end declare section;
 
 	printf("Codigo proxecto: "); proxecto=get_int();
-	printf("Numero da Seguridade Social do empregado"); empregado=get_int();
+	printf("Numero da Seguridade Social do empregado: "); empregado=get_int();
 
 
-	exec sql update proxecto set xefe_NSS = :empregado
+	exec sql update proxecto set xefe_nss = :empregado
 		 where cod_pro = :proxecto;
 
 	if (!erro){
@@ -214,7 +221,7 @@ void nomear_xefe_proxecto(){
 
 
 void modificar_data_fin(){
-	int erro;
+	int erro=0;
 	exec sql whenever sqlerror do erro = xestiona_errodml(1, "proxecto");
 
 	exec sql begin declare section;
@@ -223,7 +230,7 @@ void modificar_data_fin(){
 	exec sql end declare section;
 
 	printf("Codigo proxecto: "); proxecto=get_int();
-	printf("Nova data de fin"); get_string(dataFin, 15);
+	printf("Nova data de fin: "); get_string(dataFin, 15);
 
 
 	exec sql update proxecto set dataFin = :dataFin
@@ -236,7 +243,7 @@ void modificar_data_fin(){
 }
 
 void engadir_modulo_proxecto(){
-	int erro;
+	int erro=0;
 	exec sql whenever sqlerror do erro = xestiona_errodml(1, "modulo");
 
 	exec sql begin declare section;
@@ -261,7 +268,7 @@ void engadir_modulo_proxecto(){
 }
 
 void borrar_modulo_proxecto(){
-	int erro;
+	int erro=0;
 	exec sql whenever sqlerror do erro = xestiona_errodml(1, "modulo");
 
 	exec sql begin declare section;
@@ -284,7 +291,7 @@ void borrar_modulo_proxecto(){
 }
 
 void listar_modulos(){
-	int erro;
+	int erro=0;
 	exec sql whenever sqlerror do erro = xestiona_errodml(1, "modulo");
 
 	exec sql SET TRANSACTION READ ONLY;
@@ -317,8 +324,8 @@ void listar_modulos(){
 }
 
 void asignar_empregado(){
-	int erro;
-	exec sql whenever sqlerror do erro = xestiona_errodml(1, "proxecto");
+	int erro=0;
+	exec sql whenever sqlerror do erro = xestiona_errodml(1, "desenvolvedor en módulo");
 
 	exec sql begin declare section;
 		int proxecto;
@@ -328,22 +335,22 @@ void asignar_empregado(){
 
 	printf("Codigo proxecto: "); proxecto=get_int();
 	printf("Nome do modulo: "); get_string(nome, 15);
-	printf("Numero da Seguridade Social do empregado"); empregado=get_int();
+	printf("Numero da Seguridade Social do empregado: "); empregado=get_int();
 
 
-	exec sql update modulo set nss = :empregado
-		 where cod_pro = :proxecto and nome = :nome;
+	exec sql insert into des_mod(cod_pro,nome,nss) 
+		 values (:proxecto,:nome,:empregado);
 
 	if (!erro){
 		exec sql commit;
-		printf("\nXefe engadido.\n");
+		printf("\nEmpregado engadido.\n");
 	}
 }
 
 
 void desasignar_empregado(){
-	int erro;
-	exec sql whenever sqlerror do erro = xestiona_errodml(1, "proxecto");
+	int erro=0;
+	exec sql whenever sqlerror do erro = xestiona_errodml(1, "desenvolvedor en módulo");
 
 	exec sql begin declare section;
 		int proxecto;
@@ -353,15 +360,15 @@ void desasignar_empregado(){
 
 	printf("Codigo proxecto: "); proxecto=get_int();
 	printf("Nome do modulo: "); get_string(nome, 15);
-	printf("Numero da Seguridade Social do empregado"); empregado=get_int();
+	printf("Numero da Seguridade Social do empregado: "); empregado=get_int();
 
 
-	exec sql delete from modulo
+	exec sql delete from des_mod
 		where nss = :empregado and cod_pro = :proxecto and nome = :nome;
 
 	if (!erro){
 		exec sql commit;
-		printf("\nXefe engadido.\n");
+		printf("\nEmpregado desasignado.\n");
 	}
 }
 
@@ -382,8 +389,8 @@ void engadir_desenvolvedor(){
 	printf("N�mero da Seguridade Social: "); nss=get_long();
 	printf("Nome: "); get_string(nome, 20);
 	printf("Salario (-1 = indefinido): "); sal=get_float();
-	printf("Tel�fono M�bil: "); get_string(tlf,10);
-	printf("Enderezo: "); get_string(end,100);
+	printf("Tel�fono M�bil: "); get_string(tlf,19);
+	printf("Enderezo: "); get_string(end,99);
 
 	if (sal == -1) 
 		sal_ind=-1;
@@ -407,10 +414,10 @@ void eliminar_desenvolvedor(){
 		long nss;
 	exec sql end declare section;
 
-	printf("Eliminar desenvolvedor por NSS...: "); get_long(nss);
+	printf("Eliminar desenvolvedor por NSS...: "); nss = get_long();
 
 	exec sql delete from desenvolvedor
-		where nss like :nss;
+		where nss = :nss;
 
 	if (!erro){
 		if(sqlca.sqlerrd[2]) {
@@ -437,7 +444,7 @@ void detalle_desenvolvedor(){
 
 	printf("NSS: "); nss=get_long();
 
-	exec sql select nome, sal, telefono, enderezo
+	exec sql select nome, salario, telefono, enderezo
 			into :nome, :sal:sal_ind, :tlf, :end
 			from desenvolvedor
 			where nss = :nss;
@@ -478,15 +485,16 @@ void listar_desenvolvedores(){
 			from desenvolvedor;
 
 	EXEC SQL OPEN c_des;
-	EXEC SQL WHENEVER NOT FOUND DO BREAK;
+	EXEC SQL WHENEVER NOT FOUND DO break;
 	printf("\n\n");
-	while(1){
+	int i = 0;
+	while((i++ < 10) && (sqlca.sqlcode == 0)){
 		EXEC SQL FETCH c_des INTO :nss, :nome, :sal:sal_ind, tlf, end;
 		if (sal_ind==0)
-		     printf("DESENVOLVEDOR: \tCódigo: %ld\tNome: %s\tPrezo: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
+		     printf("DESENVOLVEDOR: \tCódigo: %ld\tNome: %s\tSalario: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
 				nss,nome,sal,tlf,end);
 		else
-		     printf("DESENVOLVEDOR: \tCódigo: %ld\tNome: %s\tPrezo desco�ecido \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
+		     printf("DESENVOLVEDOR: \tCódigo: %ld\tNome: %s\tSen salario \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
 				nss,nome,tlf,end);
 	}
 
@@ -511,7 +519,7 @@ void modificar_salario(){
 
 	printf("NSS: "); nss=get_long();
 
-	exec sql select sal
+	exec sql select salario
 		into :vello_sal:vello_sal_ind
 		from desenvolvedor
 		where nss = :nss;
@@ -527,7 +535,7 @@ void modificar_salario(){
 	 	EXEC SQL SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
  		exec sql update desenvolvedor
-			set sal = :novo_sal
+			set salario = :novo_sal
 			where nss=:nss;
 	}
 	
@@ -568,10 +576,10 @@ void buscar_xefes() {
 	while(1){
 		EXEC SQL FETCH c_xef INTO :nss, :nome, :sal:sal_ind, tlf, end;
 		if (sal_ind==0)
-		     printf("XEFE: \tC�digo: %ld\tNome: %s\tPrezo: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
+		     printf("XEFE: \tC�digo: %ld\tNome: %s\tSalario: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
 				nss,nome,sal,tlf,end);
 		else
-		     printf("XEFE: \tC�digo: %ld\tNome: %s\tPrezo desco�ecido \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
+		     printf("XEFE: \tC�digo: %ld\tNome: %s\tSen salario \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
 				nss,nome,tlf,end);
 	}
 	EXEC SQL WHENEVER NOT FOUND continue;
@@ -610,17 +618,18 @@ void buscar_empregados_por_proxecto() {
 	EXEC SQL OPEN c_des_prox;
 	EXEC SQL WHENEVER NOT FOUND DO BREAK;
 	printf("\n\n");
-	while(1){
+	int i = 0;
+	while(i++ < 10){
 		EXEC SQL FETCH c_des_prox INTO :nss, :nome, :sal:sal_ind, tlf, end;
 		if (sal_ind==0)
-		     printf("XEFE: \tC�digo: %ld\tNome: %s\tPrezo: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
+		     printf("DESENVOLVEDOR: \tC�digo: %ld\tNome: %s\tSalario: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
 				nss,nome,sal,tlf,end);
 		else
-		     printf("XEFE: \tC�digo: %ld\tNome: %s\tPrezo desco�ecido \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
+		     printf("DESENVOLVEDOR: \tC�digo: %ld\tNome: %s\tSen salario \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
 				nss,nome,tlf,end);
 	}
 	EXEC SQL WHENEVER NOT FOUND continue;
-	printf("\nXefes atopados: %d\n", sqlca.sqlerrd[2]);
+	printf("\nDesenvolvedores atopados: %d\n", sqlca.sqlerrd[2]);
 	EXEC SQL CLOSE c_des_prox;
 	printf("\n\n");
 	if (!erro)
@@ -653,22 +662,23 @@ void buscar_empregados_por_modulo() {
 			from desenvolvedor d join des_mod dm
 			on d.nss = dm.nss
 			where cod_pro = :cod_pro
-			and nome_mod like :nome_mod;
+			and dm.nome like :nome_mod;
 
 	EXEC SQL OPEN c_des_mod;
 	EXEC SQL WHENEVER NOT FOUND DO BREAK;
 	printf("\n\n");
-	while(1){
+	int i = 0;
+	while(i++ < 10){
 		EXEC SQL FETCH c_des_mod INTO :nss, :nome, :sal:sal_ind, tlf, end;
 		if (sal_ind==0)
-		     printf("XEFE: \tC�digo: %ld\tNome: %s\tPrezo: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
+		     printf("DESENVOLVEDOR: \tC�digo: %ld\tNome: %s\tSalario: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
 				nss,nome,sal,tlf,end);
 		else
-		     printf("XEFE: \tC�digo: %ld\tNome: %s\tPrezo desco�ecido \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
+		     printf("DESENVOLVEDOR: \tC�digo: %ld\tNome: %s\tSen salario \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
 				nss,nome,tlf,end);
 	}
 	EXEC SQL WHENEVER NOT FOUND continue;
-	printf("\nXefes atopados: %d\n", sqlca.sqlerrd[2]);
+	printf("\nDesenvolvedores atopados: %d\n", sqlca.sqlerrd[2]);
 	EXEC SQL CLOSE c_des_mod;
 	printf("\n\n");
 	if (!erro)
@@ -688,7 +698,8 @@ int main()
             case 2: eliminar_desenvolvedor(); break;
             case 3: detalle_desenvolvedor(); break;
             case 4: listar_desenvolvedores(); break;
-            case 6: modificar_salario(); break;
+            case 5: modificar_salario(); break;
+						case 6: engadir_proxecto(); break;
             case 7: nomear_xefe_proxecto(); break;
             case 8: modificar_data_fin(); break;
             case 9: engadir_modulo_proxecto(); break;
