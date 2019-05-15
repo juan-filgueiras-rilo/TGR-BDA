@@ -7,9 +7,9 @@ DROP TABLE desenvolvedor;
 CREATE TABLE desenvolvedor (
     nss INT,
     nome VARCHAR(15) CONSTRAINT desenv_notnull_nome NOT NULL,
-    salario DECIMAL(10,8) CONSTRAINT desenv_notnull_salario NOT NULL,
+    salario DECIMAL(10,2),
     telefono VARCHAR(10) CONSTRAINT desenv_notnull_telefono NOT NULL,
-    direccion VARCHAR(10) CONSTRAINT desenv_notnull_direccion NOT NULL,
+    enderezo VARCHAR(100) CONSTRAINT desenv_notnull_enderezo NOT NULL,
     CONSTRAINT desenv_pk PRIMARY KEY (nss)
 );
 
@@ -21,7 +21,7 @@ CREATE TABLE proxecto (
     dataFin DATE,
     xefe_nss INT,
     CONSTRAINT proxecto_pk PRIMARY KEY (cod_pro),
-    CONSTRAINT proxecto_fk_xefenss FOREIGN KEY (xefe_nss) REFERENCES desenvolvedor(nss)
+    CONSTRAINT proxecto_fk_xefenss FOREIGN KEY (xefe_nss) REFERENCES desenvolvedor(nss) ON DELETE SET NULL
 );
 
 CREATE TABLE modulo (
@@ -29,7 +29,7 @@ CREATE TABLE modulo (
     nome VARCHAR(15),
     tecnoloxia VARCHAR(15) CONSTRAINT modulo_notnull_tecnoloxia NOT NULL,
     CONSTRAINT modulo_pk PRIMARY KEY (cod_pro, nome),
-    CONSTRAINT modulo_fk_cod FOREIGN KEY (cod_pro) REFERENCES proxecto(cod_pro)
+    CONSTRAINT modulo_fk_cod FOREIGN KEY (cod_pro) REFERENCES proxecto(cod_pro) ON DELETE CASCADE
 );
 
 CREATE TABLE des_mod (
@@ -37,6 +37,6 @@ CREATE TABLE des_mod (
     nome VARCHAR(15),
     nss INT,
     CONSTRAINT des_mod_pk PRIMARY KEY (cod_pro, nome, nss),
-    CONSTRAINT des_mod_fk_cod_nome FOREIGN KEY (cod_pro, nome) REFERENCES modulo(cod_pro, nome),
-    CONSTRAINT des_mod_fk_nss FOREIGN KEY (nss) REFERENCES desenvolvedor(nss)
+    CONSTRAINT des_mod_fk_cod_nome FOREIGN KEY (cod_pro, nome) REFERENCES modulo(cod_pro, nome) ON DELETE CASCADE,
+    CONSTRAINT des_mod_fk_nss FOREIGN KEY (nss) REFERENCES desenvolvedor(nss) ON DELETE CASCADE
 );

@@ -1,8 +1,8 @@
 /*
  * 
- * Marco Mart�nez S�nchez (marco.msanchez@udc.es)
+ * Marco Martínez Sánchez (marco.msanchez@udc.es)
  * Juan Luis Filguieras Rilo (juan.filgueiras.rilo@udc.es)
- * Universidade da Coru�a
+ * Universidade da Coruña
  *
  * BDA - Curso 2018/19
  *
@@ -13,7 +13,16 @@
 #include<stdlib.h>
 #include<stdio.h>
 #include<string.h>
+#include<ctype.h>
 
+
+
+char *rtrim(char *s){
+    char* back = s + strlen(s);
+    while(isspace(*--back));
+    *(back+1) = '\0';
+    return s;
+}
 
 
 
@@ -27,72 +36,183 @@ EXEC SQL INCLUDE SQLCA;
 
 #define format  "dd/mm/yyyy"
 
+#define NOVALIDATE 0
+#define VALIDATE_NOT_NULL 1
+#define VALIDATE_NUMBER 2
+#define VALIDATE_POSITIVE 4
+#define VALIDATE_DATE 8
 
-
-void get_string(char *s, int maxlen){
-	fgets(s,maxlen,stdin);
-	int last = strlen(s) -1;
-	if ( (s[last]=='\r') || (s[last]=='\n') )
-		s[last] = '\0';
+int validateNotNull(char* data){
+	char c = rtrim(data)[0];
+	return (!isspace(c) && (c != '\0'));
 }
 
-void get_password(char *s, int maxlen){
+int validateNumber(char* data){
+	if (data[0] == '\n'){
+		return 0;
+	}
+	int n = atoi(data);
+	return (n || (data[0] == '0'));
+}
+
+int validatePositive(char* data){
+	if (validateNumber(data)){
+		return data[0] != '-';
+	} else {
+		return 0;
+	}
+}
+
+int xestiona_errodml(int,char*);
+
+int devuelveTrue(){
+	//Necesario para detectar que ocurrio un error de forma sencilla
+	return 1;
+}
+
+int validateDate(char* data){
+	if (!validateNotNull(data)){
+		return 1;
+	}
+	int erro=0;
+	exec sql whenever sqlerror do erro = devuelveTrue();
+	exec sql begin declare section;
+		char* nData = data;
+		char* nFormat = format;
+		char result[30];
+		short resultInd;
+	exec sql end declare section;
+
+	exec sql select TO_DATE(:data, :nFormat) into :result:resultInd from dual;
+
+	if (!erro)
+		return !(rtrim(result)[0] == '\0');
+	else
+	{
+		return 0;
+	}
+	
+}
+
+
+
+int validate(char* data, int flags){
+	if (flags & VALIDATE_NOT_NULL){
+		validateNotNull(data);
+	}
+	if (flags & VALIDATE_NUMBER){
+		validateNumber(data);
+	}
+	if (flags & VALIDATE_POSITIVE){
+		validatePositive(data);
+	}
+	if (flags & VALIDATE_DATE){
+		validateDate(data);
+	}
+}
+
+
+void get_string(char *s, int maxlen, int validateFlags){
+	int firstAttempt = 1;
+	do {
+		if (firstAttempt){
+			firstAttempt = 0;
+		} else {
+			printf("Valor inválido, reintente: ");
+		}
+		fgets(s,maxlen,stdin);
+		int last = strlen(s) -1;
+		if ( (s[last]=='\r') || (s[last]=='\n') )
+			s[last] = '\0';
+
+	} while(!validate(s, validateFlags));
+	
+}
+
+void get_password(char *s, int maxlen, int validateFlags){
 	system("stty -echo");
-	get_string(s,maxlen);
+	get_string(s,maxlen, validateFlags);
 	system("stty echo");
 }
 
-int get_int(){
+int get_int(int validateFlags){
 	char s[MAXLEN];
-	get_string(s,MAXLEN);
+	get_string(s,MAXLEN, validateFlags);
 	return atoi(s);
 }
 
-long get_long(){
+long get_long(int validateFlags){
 	char s[MAXLEN];
-	get_string(s,MAXLEN);
+	get_string(s,MAXLEN, validateFlags);
 	return atol(s);
 }
 
-float get_float(){
+float get_float(int validateFlags){
 	char s[MAXLEN];
-	get_string(s,MAXLEN);
+	get_string(s,MAXLEN, validateFlags);
 	return atof(s);
+}
+
+int get_option(){
+	char s[MAXLEN];
+	int firstOption = 1;
+	while (1){
+		if (firstOption){
+			firstOption = 0;
+		} else {
+			printf("Opción inválida, reintente: \n");
+		}
+		get_string(s, MAXLEN, VALIDATE_NOT_NULL);
+		switch (s[0]){
+			case 'N': return 0;
+			case 'S': return 1;
+			default: continue;
+		}
+	}
+
+}
+
+void enterContinuar(){
+	char s[2];
+	printf("\nPulsa <ENTER> para continuar.\n");
+	fgets(s, 2, stdin);
 }
 
 int menu()
 {
   int opcion = -1;
 
-  int MAXOPTS = 16; /* N�mero de opci�ns do men� */
+  int MAXOPTS = 18; /* N�mero de opci�ns do men� */
 
-  printf("Men� da aplicaci�n\n");
+  printf("Menú da aplicación\n");
   printf("=========DESENVOLVEDORES=========\n\n");
   printf("1. Engadir desenvolvedor\n");
   printf("2. Borrar desenvolvedor\n");
   printf("3. Ver detalle de desenvolvedor\n");
   printf("4. Listar desenvolvedores\n");
   printf("5. Modificar salario\n");
+	printf("6. Incrementar salario\n");
   printf("=========PROXECTOS=========\n\n");
-  printf("6. Engadir proxecto\n");
-  printf("7. Nomear xefe de proxecto\n");
-  printf("8. Modificar data de fin\n");
-  printf("=========M�DULOS=========\n\n");
-  printf("9. Engadir m�dulo dun proxecto\n");
-  printf("10. Borrar m�dulo dun proxecto\n");
-  printf("11. Listar m�dulos\n");
+  printf("7. Engadir proxecto\n");
+  printf("8. Nomear xefe de proxecto\n");
+  printf("9. Modificar data de fin\n");
+  printf("=========MÓDULOS=========\n\n");
+  printf("10. Engadir módulo dun proxecto\n");
+  printf("11. Borrar módulo dun proxecto\n");
+  printf("12. Listar módulos\n");
   printf("=========EMPREGADOS=========\n\n");
-  printf("12. Asignar empregado a m�dulo\n");
-  printf("13. Desasignar empregado de m�dulo\n");
-  printf("14. Buscar empregados por m�dulo\n");
-  printf("15. Buscar empregados por proxecto\n");
-  printf("16. Buscar xefes de proxecto\n");
+  printf("13. Asignar empregado a módulo\n");
+  printf("14. Desasignar empregado de módulo\n");
+  printf("15. Buscar empregados por módulo\n");
+  printf("16. Buscar empregados por proxecto\n");
+  printf("17. Buscar xefes de proxecto\n");
+	printf("18. Listar proxectos\n");
 
-  printf("0. Sa�r\n");
+  printf("0. Saír\n");
 
   while ( (opcion < 0) || (opcion > MAXOPTS)){
       printf("OP> ");
-      opcion=get_long();
+      opcion=get_long(VALIDATE_NOT_NULL | VALIDATE_NUMBER);
   }
   return opcion;
 }
@@ -153,8 +273,8 @@ void conecta_bd(){
 	exec sql end declare section;
 
 	printf("Conectando con Oracle...\n");
-	printf("Usuario: "); get_string(usuario, 29);
-	printf("Clave: "); get_password(clave, 29);
+	printf("Usuario: "); get_string(usuario, 29, VALIDATE_NOT_NULL);
+	printf("Clave: "); get_password(clave, 29, VALIDATE_NOT_NULL);
 
 	EXEC SQL CONNECT :usuario IDENTIFIED BY :clave;
 
@@ -167,6 +287,7 @@ void desconecta_bd(){
 }
 
 void engadir_proxecto(){
+
 	int erro=0;
 	exec sql whenever sqlerror do erro = xestiona_errodml(1, "proxecto");
 
@@ -178,11 +299,12 @@ void engadir_proxecto(){
 		short dataFinInd;
 		char* nFormat = format;
 	exec sql end declare section;
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
-	printf("Codigo: "); codigo=get_int();
-	printf("Nome: "); get_string(nome, 15);
-	printf("Data de inicio (%s): ", format); get_string(dataIni, 15);
-	printf("Data de fin (opcional): "); get_string(dataFin, 15);
+	printf("Codigo: "); codigo=get_int(VALIDATE_NOT_NULL | VALIDATE_POSITIVE);
+	printf("Nome: "); get_string(nome, 15, VALIDATE_NOT_NULL);
+	printf("Data de inicio (%s): ", format); get_string(dataIni, 15, VALIDATE_DATE | VALIDATE_NOT_NULL);
+	printf("Data de fin (opcional): "); get_string(dataFin, 15, VALIDATE_DATE);
 	dataFinInd = (dataFin[0] == '\n' || dataFin[0] == '\0') ? -1 : 0;
 
 	
@@ -192,6 +314,7 @@ void engadir_proxecto(){
 	if (!erro){
 		exec sql commit;
 		printf("\nProxecto engadido.\n");
+		enterContinuar();
 	}
 
 }
@@ -206,9 +329,10 @@ void nomear_xefe_proxecto(){
 		int empregado;
 	exec sql end declare section;
 
-	printf("Codigo proxecto: "); proxecto=get_int();
-	printf("Numero da Seguridade Social do empregado: "); empregado=get_int();
+	printf("Codigo proxecto: "); proxecto=get_int(VALIDATE_POSITIVE);
+	printf("Numero da Seguridade Social do empregado: "); empregado=get_int(VALIDATE_POSITIVE);
 
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
 	exec sql update proxecto set xefe_nss = :empregado
 		 where cod_pro = :proxecto;
@@ -216,6 +340,7 @@ void nomear_xefe_proxecto(){
 	if (!erro){
 		exec sql commit;
 		printf("\nXefe engadido.\n");
+		enterContinuar();
 	}
 }
 
@@ -229,18 +354,22 @@ void modificar_data_fin(){
 		char dataFin[16];
 	exec sql end declare section;
 
-	printf("Codigo proxecto: "); proxecto=get_int();
-	printf("Nova data de fin: "); get_string(dataFin, 15);
+	printf("Codigo proxecto: "); proxecto=get_int(VALIDATE_POSITIVE);
+	printf("Nova data de fin: "); get_string(dataFin, 15, VALIDATE_DATE);
 
 
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 	exec sql update proxecto set dataFin = :dataFin
 		 where cod_pro = :proxecto;
 
 	if (!erro){
 		exec sql commit;
 		printf("\nData modificada.\n");
+		enterContinuar();
 	}
 }
+
+void listar_desenvolvedores(int attach);
 
 void engadir_modulo_proxecto(){
 	int erro=0;
@@ -250,19 +379,45 @@ void engadir_modulo_proxecto(){
 		int codigo;
 		char nome[16];
 		char tecnoloxia[16];
+		long nss;
 	exec sql end declare section;
 
-	printf("Codigo do proxecto: "); codigo=get_int();
-	printf("Nome do modulo: "); get_string(nome, 15);
-	printf("Tecnoloxía: "); get_string(tecnoloxia, 15);
+	printf("Codigo do proxecto: "); codigo=get_int(VALIDATE_POSITIVE);
+	printf("Nome do modulo: "); get_string(nome, 15, VALIDATE_NOT_NULL);
+	printf("Tecnoloxía: "); get_string(tecnoloxia, 15, VALIDATE_NOT_NULL);
 
-
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 	exec sql insert into modulo(cod_pro,nome,tecnoloxia)
 		values(:codigo, :nome, :tecnoloxia);
+
+	int option;
+	
+	printf("Deseas engadir algun desenvolvedor ao módulo? (S / N): "); option = get_option();
+	exec sql whenever sqlerror do erro = xestiona_errodml(1, "des_mod");
+	if (option){
+		listar_desenvolvedores(1);
+	}
+	while (option){
+		
+		
+
+		printf("NSS: "); nss = get_long(VALIDATE_NOT_NULL | VALIDATE_POSITIVE);
+		
+		exec sql insert into des_mod(cod_pro, nome, nss)
+			values(:codigo, :nome, :nss);
+		
+		printf("Deseas engadir outro desenvolvedor ao módulo? (S / N): "); option = get_option();
+
+	}
+	exec sql whenever sqlerror do erro = xestiona_errodml(1, "modulo");
+
+
+
 
 	if (!erro){
 		exec sql commit;
 		printf("\nMódulo engadido.\n");
+		enterContinuar();
 	}
 
 }
@@ -276,9 +431,10 @@ void borrar_modulo_proxecto(){
 		char nome[16];
 	exec sql end declare section;
 
-	printf("Codigo do proxecto: "); codigo=get_int();
-	printf("Nome do modulo: "); get_string(nome, 15);
+	printf("Codigo do proxecto: "); codigo=get_int(VALIDATE_POSITIVE);
+	printf("Nome do modulo: "); get_string(nome, 15, VALIDATE_NOT_NULL);
 
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
 	exec sql delete from modulo
 		where nome = :nome and cod_pro = :codigo;
@@ -286,6 +442,7 @@ void borrar_modulo_proxecto(){
 	if (!erro){
 		exec sql commit;
 		printf("\nMódulo eliminado.\n");
+		enterContinuar();
 	}
 
 }
@@ -309,17 +466,24 @@ void listar_modulos(){
 	EXEC SQL OPEN c_mod;
 	EXEC SQL WHENEVER NOT FOUND DO BREAK;
 	printf("\n\n");
+	printf("+----------+------------------+------------------+\n");
+	printf("| Proxecto |       Nome       |    Tecnoloxía    |\n");
+	printf("+----------+------------------+------------------+\n");
 	while(1){
 		EXEC SQL FETCH c_mod INTO :codigo, :nome, :tecnoloxia;
-		  printf("MODULO: \tProxecto: %d\tNome: %s\tTecnoloxia: %s.\n", 
+		  printf("| %8d | %16.16s | %16.16s |\n", 
 				codigo,nome,tecnoloxia);
 	}
 	EXEC SQL WHENEVER NOT FOUND continue;
+	printf("+----------+------------------+------------------+\n");
 	printf("\nModulos atopados: %d\n", sqlca.sqlerrd[2]);
 	EXEC SQL CLOSE c_mod;
 	printf("\n\n");
-	if (!erro)
+	if (!erro){
 		EXEC SQL COMMIT;
+		enterContinuar();
+	}
+		
 
 }
 
@@ -333,17 +497,19 @@ void asignar_empregado(){
 		int empregado;
 	exec sql end declare section;
 
-	printf("Codigo proxecto: "); proxecto=get_int();
-	printf("Nome do modulo: "); get_string(nome, 15);
-	printf("Numero da Seguridade Social do empregado: "); empregado=get_int();
+	printf("Codigo proxecto: "); proxecto=get_int(VALIDATE_POSITIVE);
+	printf("Nome do modulo: "); get_string(nome, 15, VALIDATE_NOT_NULL);
+	printf("Numero da Seguridade Social do empregado: "); empregado=get_int(VALIDATE_POSITIVE);
 
 
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 	exec sql insert into des_mod(cod_pro,nome,nss) 
 		 values (:proxecto,:nome,:empregado);
 
 	if (!erro){
 		exec sql commit;
 		printf("\nEmpregado engadido.\n");
+		enterContinuar();
 	}
 }
 
@@ -358,10 +524,11 @@ void desasignar_empregado(){
 		int empregado;
 	exec sql end declare section;
 
-	printf("Codigo proxecto: "); proxecto=get_int();
-	printf("Nome do modulo: "); get_string(nome, 15);
-	printf("Numero da Seguridade Social do empregado: "); empregado=get_int();
+	printf("Codigo proxecto: "); proxecto=get_int(VALIDATE_POSITIVE);
+	printf("Nome do modulo: "); get_string(nome, 15, VALIDATE_NOT_NULL);
+	printf("Numero da Seguridade Social do empregado: "); empregado=get_int(VALIDATE_POSITIVE);
 
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
 	exec sql delete from des_mod
 		where nss = :empregado and cod_pro = :proxecto and nome = :nome;
@@ -369,6 +536,7 @@ void desasignar_empregado(){
 	if (!erro){
 		exec sql commit;
 		printf("\nEmpregado desasignado.\n");
+		enterContinuar();
 	}
 }
 
@@ -386,14 +554,16 @@ void engadir_desenvolvedor(){
 
 	exec sql end declare section;
 
-	printf("N�mero da Seguridade Social: "); nss=get_long();
-	printf("Nome: "); get_string(nome, 20);
-	printf("Salario (-1 = indefinido): "); sal=get_float();
-	printf("Tel�fono M�bil: "); get_string(tlf,19);
-	printf("Enderezo: "); get_string(end,99);
+	printf("Número da Seguridade Social: "); nss=get_long(VALIDATE_POSITIVE | VALIDATE_NOT_NULL);
+	printf("Nome: "); get_string(nome, 20, VALIDATE_NOT_NULL);
+	printf("Salario (opcional): "); sal=get_float(VALIDATE_POSITIVE | VALIDATE_NOT_NULL);
+	printf("Teléfono Móbil: "); get_string(tlf,19, VALIDATE_NOT_NULL);
+	printf("Enderezo: "); get_string(end,99, VALIDATE_NOT_NULL);
 
 	if (sal == -1) 
 		sal_ind=-1;
+
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
 	exec sql insert into desenvolvedor(nss,nome,salario,telefono,enderezo)
 		values(:nss, :nome, :sal:sal_ind, :tlf, :end);
@@ -401,6 +571,7 @@ void engadir_desenvolvedor(){
 	if (!erro){
 		exec sql commit;
 		printf("\nDesenvolvedor engadido.\n");
+		enterContinuar();
 	}
 
 }
@@ -414,8 +585,9 @@ void eliminar_desenvolvedor(){
 		long nss;
 	exec sql end declare section;
 
-	printf("Eliminar desenvolvedor por NSS...: "); nss = get_long();
+	printf("Eliminar desenvolvedor por NSS...: "); nss = get_long(VALIDATE_NOT_NULL | VALIDATE_POSITIVE);
 
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 	exec sql delete from desenvolvedor
 		where nss = :nss;
 
@@ -426,6 +598,7 @@ void eliminar_desenvolvedor(){
 			printf("\nNon se atopou o empregado.\n");
 		}
 		exec sql commit;
+		enterContinuar();
 	}
 }
 
@@ -442,8 +615,9 @@ void detalle_desenvolvedor(){
 		char end[100];
 	exec sql end declare section;
 
-	printf("NSS: "); nss=get_long();
+	printf("NSS: "); nss=get_long(VALIDATE_POSITIVE | VALIDATE_NOT_NULL);
 
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 	exec sql select nome, salario, telefono, enderezo
 			into :nome, :sal:sal_ind, :tlf, :end
 			from desenvolvedor
@@ -454,22 +628,26 @@ void detalle_desenvolvedor(){
 		if (sqlca.sqlcode==1403)
 			printf("Desenvolvedor inexistente.\n");
 		else{
-			if (sal_ind == -1)
-				printf("Desenvolvedor: [%ld, %s, --, %s, %s]\n", nss, nome, tlf, end);
-			else
-				printf("Desenvolvedor: [%ld, %s, %g, %s, %s]\n", nss, nome, sal, tlf, end);
+		if (sal_ind==0)
+		     printf("| %6ld | %10.10s | %11g | %14.14s | %20.20s. |\n", 
+				nss,rtrim(nome),sal,rtrim(tlf),rtrim(end));
+		else
+		     printf("| %6ld | %10.10s | Sen salario | %14.14s | %20.20s. |\n", 
+				nss,rtrim(nome),rtrim(tlf),rtrim(end));
 	
 		}
 		exec sql commit;
+		enterContinuar();
 	}
 }
 
 
-void listar_desenvolvedores(){
+void listar_desenvolvedores(int attach){
 	int erro=0;
 	exec sql whenever sqlerror do erro=xestiona_errodml(1,"desenvolvedor");
 
-	exec sql SET TRANSACTION READ ONLY;
+	if (!attach)
+		exec sql SET TRANSACTION READ ONLY;
 
 	exec sql begin declare section;
 		long nss;
@@ -487,24 +665,32 @@ void listar_desenvolvedores(){
 	EXEC SQL OPEN c_des;
 	EXEC SQL WHENEVER NOT FOUND DO break;
 	printf("\n\n");
-	int i = 0;
-	while((i++ < 10) && (sqlca.sqlcode == 0)){
+	printf("+--------+------------+-------------+----------------+-----------------------+\n");
+	printf("|  NSS   |    Nome:   |   Salario   | Teléfono Móbil |       Enderezo        |\n");
+	printf("+--------+------------+-------------+----------------+-----------------------+\n");
+
+	while(1){
 		EXEC SQL FETCH c_des INTO :nss, :nome, :sal:sal_ind, tlf, end;
 		if (sal_ind==0)
-		     printf("DESENVOLVEDOR: \tCódigo: %ld\tNome: %s\tSalario: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
-				nss,nome,sal,tlf,end);
+		     printf("| %6ld | %10.10s | %11g | %14.14s | %20.20s. |\n", 
+				nss,rtrim(nome),sal,rtrim(tlf),rtrim(end));
 		else
-		     printf("DESENVOLVEDOR: \tCódigo: %ld\tNome: %s\tSen salario \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
-				nss,nome,tlf,end);
+		     printf("| %6ld | %10.10s | Sen salario | %14.14s | %20.20s. |\n", 
+				nss,rtrim(nome),rtrim(tlf),rtrim(end));
 	}
 
 	EXEC SQL WHENEVER NOT FOUND continue;
+	printf("+--------+------------+-------------+----------------+-----------------------+\n");
 	printf("\nDesenvolvedores atopados: %d\n", sqlca.sqlerrd[2]);
 	EXEC SQL CLOSE c_des;
 	printf("\n\n");
-	if (!erro)
+	if ((!erro) && (!attach)){
 		EXEC SQL COMMIT;
+		enterContinuar();
+	}
+		
 }
+
 
 
 void modificar_salario(){
@@ -517,22 +703,29 @@ void modificar_salario(){
 		float vello_sal; short vello_sal_ind;
 	exec sql end declare section;
 
-	printf("NSS: "); nss=get_long();
+	printf("NSS: "); nss=get_long(VALIDATE_POSITIVE | VALIDATE_NOT_NULL);
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
 	exec sql select salario
 		into :vello_sal:vello_sal_ind
 		from desenvolvedor
 		where nss = :nss;
 
-	if(vello_sal_ind == 0) {
+	if (sqlca.sqlerrd[2] <= 0){
+		printf("Non se atopou o desenvolvedor na base de datos\n");
+		exec sql rollback;
+		enterContinuar();
+		return;
+	}
+	if (vello_sal_ind == 0) {
 		printf("Salario actual do desenvolvedor: %g\n", vello_sal);
 	} else {
 		printf("O desenvolvedor non ten un salario asignado.\n");
 	}
-	printf("Modificar salario (-1 para deixalo igual): "); novo_sal=get_float();
+	printf("Modificar salario (opcional): "); novo_sal=get_float(VALIDATE_POSITIVE);
 
 	if (novo_sal != -1) {
-	 	EXEC SQL SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+	 	
 
  		exec sql update desenvolvedor
 			set salario = :novo_sal
@@ -545,9 +738,61 @@ void modificar_salario(){
 		else
 			printf("Desenvolvedor non atopado\n");
 		exec sql commit;
+		enterContinuar();
 	}
 
 }
+
+void modificar_salario_relativo(){
+	int erro=0;
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"desenvolvedor");
+
+	exec sql begin declare section;
+		long nss;
+		float novo_sal;
+		float vello_sal; short vello_sal_ind;
+	exec sql end declare section;
+
+	printf("NSS: "); nss=get_long(VALIDATE_POSITIVE | VALIDATE_NOT_NULL);
+	EXEC SQL SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+	exec sql select salario
+		into :vello_sal:vello_sal_ind
+		from desenvolvedor
+		where nss = :nss;
+
+	if (sqlca.sqlerrd[2] <= 0){
+		printf("Non se atopou o desenvolvedor na base de datos\n");
+		exec sql rollback;
+		enterContinuar();
+		return;
+	}
+	if (vello_sal_ind == 0) {
+		printf("Salario actual do desenvolvedor: %g\n", vello_sal);
+	} else {
+		printf("O desenvolvedor non ten un salario asignado.\n");
+	}
+	printf("Salario a aumentar (opcional): "); novo_sal=get_float(VALIDATE_POSITIVE);
+
+	if (novo_sal != -1) {
+	 	
+
+ 		exec sql update desenvolvedor
+			set salario = salario + :novo_sal
+			where nss=:nss;
+	}
+	
+	if(!erro){
+		if (sqlca.sqlerrd[2])   
+			printf("Desenvolvedor con salario modificado\n");
+		else
+			printf("Desenvolvedor non atopado\n");
+		exec sql commit;
+		enterContinuar();
+	}
+
+}
+
 
 void buscar_xefes() {
 
@@ -558,6 +803,7 @@ void buscar_xefes() {
 
 	exec sql begin declare section;
 		long nss;
+		long cod_pro;
 		char nome[30];
 		float sal;
 		short sal_ind;
@@ -566,28 +812,36 @@ void buscar_xefes() {
 	exec sql end declare section;
 
 	exec sql declare c_xef cursor for
-		select nss, d.nome, salario, telefono, enderezo
+		select p.cod_pro, nss, d.nome, salario, telefono, enderezo
 			from desenvolvedor d join proxecto p
 			on d.nss = p.xefe_nss;
 
 	EXEC SQL OPEN c_xef;
 	EXEC SQL WHENEVER NOT FOUND DO BREAK;
 	printf("\n\n");
+
+	printf("+----------+--------+------------+-------------+----------------+-----------------------+\n");
+	printf("| Proxecto |  NSS   |    Nome    |   Salario   | Teléfono Móbil |       Enderezo        |\n");
+	printf("+----------+--------+------------+-------------+----------------+-----------------------+\n");
 	while(1){
-		EXEC SQL FETCH c_xef INTO :nss, :nome, :sal:sal_ind, tlf, end;
+		EXEC SQL FETCH c_xef INTO :cod_pro, :nss, :nome, :sal:sal_ind, tlf, end;
 		if (sal_ind==0)
-		     printf("XEFE: \tC�digo: %ld\tNome: %s\tSalario: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
-				nss,nome,sal,tlf,end);
+		     printf("| %8ld | %6ld | %10.10s | %11g | %14.14s | %20.20s. |\n", 
+				cod_pro, nss,rtrim(nome),sal,rtrim(tlf),rtrim(end));
 		else
-		     printf("XEFE: \tC�digo: %ld\tNome: %s\tSen salario \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
-				nss,nome,tlf,end);
+		     printf("| %8ld | %6ld | %10.10s | Sen salario | %14.14s | %20.20s. |\n", 
+				cod_pro, nss,rtrim(nome),rtrim(tlf),rtrim(end));
 	}
+	printf("+----------+--------+------------+-------------+----------------+-----------------------+\n");
 	EXEC SQL WHENEVER NOT FOUND continue;
 	printf("\nXefes atopados: %d\n", sqlca.sqlerrd[2]);
-	EXEC SQL CLOSE c_des;
+	EXEC SQL CLOSE c_xef;
 	printf("\n\n");
-	if (!erro)
+	if (!erro){
 		EXEC SQL COMMIT;
+		enterContinuar();
+	}
+		
 }
 
 void buscar_empregados_por_proxecto() {
@@ -607,7 +861,7 @@ void buscar_empregados_por_proxecto() {
 		char end[100];
 	exec sql end declare section;
 
-	printf("C�digo proxecto: "); cod_pro=get_int();
+	printf("Código proxecto: "); cod_pro=get_int(VALIDATE_NOT_NULL | VALIDATE_POSITIVE);
 
 	exec sql declare c_des_prox cursor for
 		select d.nss, d.nome, salario, telefono, enderezo
@@ -618,22 +872,30 @@ void buscar_empregados_por_proxecto() {
 	EXEC SQL OPEN c_des_prox;
 	EXEC SQL WHENEVER NOT FOUND DO BREAK;
 	printf("\n\n");
-	int i = 0;
-	while(i++ < 10){
+
+	printf("+--------+------------+-------------+----------------+-----------------------+\n");
+	printf("|  NSS   |    Nome:   |   Salario   | Teléfono Móbil |       Enderezo        |\n");
+	printf("+--------+------------+-------------+----------------+-----------------------+\n");
+
+	while(1){
 		EXEC SQL FETCH c_des_prox INTO :nss, :nome, :sal:sal_ind, tlf, end;
 		if (sal_ind==0)
-		     printf("DESENVOLVEDOR: \tC�digo: %ld\tNome: %s\tSalario: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
-				nss,nome,sal,tlf,end);
+		     printf("| %6ld | %10.10s | %11g | %14.14s | %20.20s. |\n", 
+				nss,rtrim(nome),sal,rtrim(tlf),rtrim(end));
 		else
-		     printf("DESENVOLVEDOR: \tC�digo: %ld\tNome: %s\tSen salario \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
-				nss,nome,tlf,end);
+		     printf("| %6ld | %10.10s | Sen salario | %14.14s | %20.20s. |\n", 
+				nss,rtrim(nome),rtrim(tlf),rtrim(end));
 	}
 	EXEC SQL WHENEVER NOT FOUND continue;
+	printf("+--------+------------+-------------+----------------+-----------------------+\n");
 	printf("\nDesenvolvedores atopados: %d\n", sqlca.sqlerrd[2]);
 	EXEC SQL CLOSE c_des_prox;
 	printf("\n\n");
-	if (!erro)
+	if (!erro){
 		EXEC SQL COMMIT;
+		enterContinuar();
+	}
+		
 }
 
 void buscar_empregados_por_modulo() {
@@ -654,8 +916,8 @@ void buscar_empregados_por_modulo() {
 		char end[100];
 	exec sql end declare section;
 
-	printf("C�digo proxecto: "); cod_pro=get_int();
-	printf("Nome m�dulo: "); get_string(nome_mod, 16);
+	printf("Código proxecto: "); cod_pro=get_int(VALIDATE_NOT_NULL | VALIDATE_POSITIVE);
+	printf("Nome módulo: "); get_string(nome_mod, 16, VALIDATE_NOT_NULL);
 
 	exec sql declare c_des_mod cursor for
 		select d.nss, d.nome, salario, telefono, enderezo
@@ -667,22 +929,77 @@ void buscar_empregados_por_modulo() {
 	EXEC SQL OPEN c_des_mod;
 	EXEC SQL WHENEVER NOT FOUND DO BREAK;
 	printf("\n\n");
-	int i = 0;
-	while(i++ < 10){
+	printf("+--------+------------+-------------+----------------+-----------------------+\n");
+	printf("|  NSS   |    Nome:   |   Salario   | Teléfono Móbil |       Enderezo        |\n");
+	printf("+--------+------------+-------------+----------------+-----------------------+\n");
+
+	while(1){
 		EXEC SQL FETCH c_des_mod INTO :nss, :nome, :sal:sal_ind, tlf, end;
 		if (sal_ind==0)
-		     printf("DESENVOLVEDOR: \tC�digo: %ld\tNome: %s\tSalario: %g \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
-				nss,nome,sal,tlf,end);
+		     printf("| %6ld | %10.10s | %11g | %14.14s | %20.20s. |\n", 
+				nss,rtrim(nome),sal,rtrim(tlf),rtrim(end));
 		else
-		     printf("DESENVOLVEDOR: \tC�digo: %ld\tNome: %s\tSen salario \tTel�fono M�bil: %s \tEnderezo: %s.\n", 
-				nss,nome,tlf,end);
+		     printf("| %6ld | %10.10s | Sen salario | %14.14s | %20.20s. |\n", 
+				nss,rtrim(nome),rtrim(tlf),rtrim(end));
 	}
 	EXEC SQL WHENEVER NOT FOUND continue;
+	printf("+--------+------------+-------------+----------------+-----------------------+\n");
 	printf("\nDesenvolvedores atopados: %d\n", sqlca.sqlerrd[2]);
 	EXEC SQL CLOSE c_des_mod;
 	printf("\n\n");
-	if (!erro)
+	if (!erro){
 		EXEC SQL COMMIT;
+		enterContinuar();
+	}
+		
+}
+
+
+void listar_proxectos(){
+	int erro=0;
+	exec sql whenever sqlerror do erro=xestiona_errodml(1,"desenvolvedor");
+
+	exec sql SET TRANSACTION READ ONLY;
+
+	exec sql begin declare section;
+		long cod_pro;
+		char nome[16];
+		long xefe_nss;
+		short xefe_nssInd;
+		char dataIni[20];
+		char dataFin[100];
+		short dataFinInd;
+	exec sql end declare section;
+
+	exec sql declare c_prox cursor for
+		select cod_pro, nome, dataIni, dataFin, xefe_nss
+			from proxecto;
+
+	EXEC SQL OPEN c_prox;
+	EXEC SQL WHENEVER NOT FOUND DO BREAK;
+	printf("+--------+------------------+------------+------------+--------+\n");
+	printf("| Código | Nome do proxecto |  Data ini  |  Data fin  |  Xefe  |\n");
+	printf("+--------+------------------+------------+------------+--------+\n");
+	while(1){
+		EXEC SQL FETCH c_prox INTO :cod_pro, :nome, :dataIni, :dataFin:dataFinInd, :xefe_nss:xefe_nssInd;
+		char xefe_nssString[7];
+		xefe_nssString[0] = '\0';
+		if (xefe_nssInd == 0){
+			sprintf(xefe_nssString, "%6ld", xefe_nss);
+		}
+		printf("| %6ld | %16.16s | %10.10s | %10.10s | %6.6s |\n", 
+				cod_pro, rtrim(nome), rtrim(dataIni), (dataFinInd == 0) ? rtrim(dataFin) : "", xefe_nssString);
+	}
+
+	EXEC SQL WHENEVER NOT FOUND continue;
+	printf("+--------+------------------+------------+------------+--------+\n");
+	printf("\nProxectos atopados: %d\n", sqlca.sqlerrd[2]);
+	EXEC SQL CLOSE c_prox;
+
+	if (!erro){
+		EXEC SQL COMMIT;
+		enterContinuar();
+	}
 }
 
 /* Funci�n principal */
@@ -697,19 +1014,21 @@ int main()
             case 1: engadir_desenvolvedor(); break;
             case 2: eliminar_desenvolvedor(); break;
             case 3: detalle_desenvolvedor(); break;
-            case 4: listar_desenvolvedores(); break;
+            case 4: listar_desenvolvedores(0); break;
             case 5: modificar_salario(); break;
-						case 6: engadir_proxecto(); break;
-            case 7: nomear_xefe_proxecto(); break;
-            case 8: modificar_data_fin(); break;
-            case 9: engadir_modulo_proxecto(); break;
-            case 10: borrar_modulo_proxecto(); break;
-            case 11: listar_modulos(); break;
-            case 12: asignar_empregado(); break;
-            case 13: desasignar_empregado(); break;
-            case 14: buscar_empregados_por_modulo(); break;
-            case 15: buscar_empregados_por_proxecto(); break;
-            case 16: buscar_xefes(); break;
+						case 6: modificar_salario_relativo(); break;
+						case 7: engadir_proxecto(); break;
+            case 8: nomear_xefe_proxecto(); break;
+            case 9: modificar_data_fin(); break;
+            case 10: engadir_modulo_proxecto(); break;
+            case 11: borrar_modulo_proxecto(); break;
+            case 12: listar_modulos(); break;
+            case 13: asignar_empregado(); break;
+            case 14: desasignar_empregado(); break;
+            case 15: buscar_empregados_por_modulo(); break;
+            case 16: buscar_empregados_por_proxecto(); break;
+            case 17: buscar_xefes(); break;
+						case 18: listar_proxectos(); break;
        }
 
   }
