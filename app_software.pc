@@ -64,7 +64,7 @@ int menu()
 {
   int opcion = -1;
 
-  int MAXOPTS = 15; /* N�mero de opci�ns do men� */
+  int MAXOPTS = 16; /* N�mero de opci�ns do men� */
 
   printf("Men� da aplicaci�n\n");
   printf("=========DESENVOLVEDORES=========\n\n");
@@ -566,7 +566,7 @@ void buscar_xefes() {
 	exec sql end declare section;
 
 	exec sql declare c_xef cursor for
-		select nss, nome, salario, telefono, enderezo
+		select nss, d.nome, salario, telefono, enderezo
 			from desenvolvedor d join proxecto p
 			on d.nss = p.xefe_nss;
 
